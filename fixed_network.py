@@ -2,7 +2,7 @@ net = NetworkAPI()
 
 net.setCompiler(p4rt=True)
 net.addP4RuntimeSwitch(name='s1')
-net.setP4SourceAll(p4_src='fixed.p4.p4')
+net.setP4SourceAll(p4_src='fixed.p4')
 
 net.addHost(name='h1')
 net.addHost(name='h2')
