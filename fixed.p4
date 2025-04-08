@@ -59,7 +59,7 @@ const bit<1> BYTE_INDEX = 1;
 register<reportedCount_t, bit<1>>(2) statistical_data;  // 统计数据：[包数, 字节数]
 register<timestamp_t, bit<1>>(1) prev_timestamp;  // 上次上报的时间戳
 
-parser UnmonitoredParser(
+parser FixedParser(
     packet_in packet,
     out headers hdr,
     inout metadata meta,
@@ -81,7 +81,7 @@ parser UnmonitoredParser(
 
 }
 
-control UnmonitoredVerifyChecksum(
+control FixedVerifyChecksum(
     inout headers  hdr,
     inout metadata meta
 ) {
@@ -92,7 +92,7 @@ control UnmonitoredVerifyChecksum(
 
 }
 
-control UnmonitoredIngress(
+control FixedIngress(
     inout headers             hdr,
     inout metadata            meta,
     inout standard_metadata_t standard_metadata
@@ -167,14 +167,14 @@ control UnmonitoredIngress(
 
 }
 
-control UnmonitoredEgress(inout headers             hdr,
-                          inout metadata            meta,
-                          inout standard_metadata_t standard_metadata) {
+control FixedEgress(inout headers             hdr,
+                    inout metadata            meta,
+                    inout standard_metadata_t standard_metadata) {
     apply { }
 }
 
-control UnmonitoredComputeChecksum(inout headers  hdr,
-                                   inout metadata meta) {
+control FixedComputeChecksum(inout headers  hdr,
+                             inout metadata meta) {
 
     apply {
 	update_checksum(
@@ -199,8 +199,8 @@ control UnmonitoredComputeChecksum(inout headers  hdr,
 
 }
 
-control UnmonitoredDeparser(packet_out packet,
-                   in headers hdr) {
+control FixedDeparser(packet_out packet,
+                      in headers hdr) {
 
     apply {
         packet.emit(hdr.ethernet);
@@ -210,10 +210,10 @@ control UnmonitoredDeparser(packet_out packet,
 }
 
 V1Switch(
-    UnmonitoredParser(),
-    UnmonitoredVerifyChecksum(),
-    UnmonitoredIngress(),
-    UnmonitoredEgress(),
-    UnmonitoredComputeChecksum(),
-    UnmonitoredDeparser()
+    FixedParser(),
+    FixedVerifyChecksum(),
+    FixedIngress(),
+    FixedEgress(),
+    FixedComputeChecksum(),
+    FixedDeparser()
 ) main;
