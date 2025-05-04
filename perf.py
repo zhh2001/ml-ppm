@@ -4,6 +4,8 @@
 """
 
 import time
+import timeit
+import gc
 import joblib
 import warnings
 import matplotlib
@@ -15,7 +17,7 @@ from sklearn.exceptions import InconsistentVersionWarning
 
 warnings.filterwarnings('ignore', category=InconsistentVersionWarning)
 warnings.filterwarnings('ignore', category=UserWarning)
-matplotlib.rcParams['font.family'] = 'SimSun'
+matplotlib.rcParams['font.family'] = 'Times New Roman'
 
 
 class SVMPredictor:
@@ -99,7 +101,6 @@ class LGBPredictor:
 
 
 if __name__ == "__main__":
-
     new_network_data = {
         # 'reported_byte': 1500,
         'reported_bps': 1.2e6,
@@ -107,7 +108,7 @@ if __name__ == "__main__":
     }
 
     xgb_predictor = XGBPredictor()
-    print(f"XGBoost 总内存占用: {asizeof.asizeof(xgb_predictor) / 1024 ** 1:.2f} KB")
+    print(f"XGB 总内存占用: {asizeof.asizeof(xgb_predictor) / 1024 ** 1:.2f} KB")
 
     lgb_predictor = LGBPredictor()
     print(f"LGB 总内存占用: {asizeof.asizeof(lgb_predictor) / 1024 ** 1:.2f} KB")
@@ -115,44 +116,58 @@ if __name__ == "__main__":
     svm_predictor = SVMPredictor()
     print(f"SVM 总内存占用: {asizeof.asizeof(svm_predictor) / 1024 ** 1:.2f} KB")
 
-    loop = 10000
+    loop = 1000
 
-    xgboost_perfs = []
-    for _ in range(loop):
-        start = time.perf_counter_ns()
-        optimal_prd = xgb_predictor.predict(new_network_data)
-        end = time.perf_counter_ns()
-        xgboost_perfs.append(end - start)
-    xgboost_perfs = [perf / 1000 / 1000 for perf in xgboost_perfs]
-    print(f'平均耗时: {sum(xgboost_perfs) / loop:.6f}ms')
+    gc.disable()
+    xgb_predictor.predict(new_network_data)
+    times = timeit.repeat(lambda: xgb_predictor.predict(new_network_data), repeat=loop, number=1)
+    xgboost_perfs = [t * 1000 for t in times]
+    gc.enable()
 
-    lgb_perfs = []
-    for _ in range(loop):
-        start = time.perf_counter_ns()
-        optimal_prd = lgb_predictor.predict(new_network_data)
-        end = time.perf_counter_ns()
-        lgb_perfs.append(end - start)
-    lgb_perfs = [perf / 1000 / 1000 for perf in lgb_perfs]
-    print(f'平均耗时: {sum(lgb_perfs) / loop:.6f}ms')
+    gc.disable()
+    lgb_predictor.predict(new_network_data)
+    times = timeit.repeat(lambda: lgb_predictor.predict(new_network_data), repeat=loop, number=1)
+    lgb_perfs = [t * 1000 for t in times]
+    gc.enable()
 
-    svm_perfs = []
-    for _ in range(loop):
-        start = time.perf_counter_ns()
-        optimal_prd = svm_predictor.predict(new_network_data)
-        end = time.perf_counter_ns()
-        svm_perfs.append(end - start)
-    svm_perfs = [perf / 1000 / 1000 for perf in svm_perfs]
-    print(f'平均耗时: {sum(svm_perfs) / loop:.6f}ms')
+    gc.disable()
+    svm_predictor.predict(new_network_data)
+    times = timeit.repeat(lambda: svm_predictor.predict(new_network_data), repeat=loop, number=1)
+    svm_perfs = [t * 1000 for t in times]
+    gc.enable()
 
     # 性能折线图
-    plt.figure(figsize=(12, 6))
-    plt.plot(xgboost_perfs, color='blue', linestyle='-', label='XGBoost 预测耗时', alpha=0.7)
-    plt.plot(lgb_perfs, color='orange', linestyle='-', label='LightGBM 预测耗时', alpha=0.7)
-    plt.plot(svm_perfs, color='green', linestyle='-', label='SVM 预测耗时', alpha=0.7)
-    plt.title('预测耗时对比: XGBoost vs LightGBM vs SVM', fontsize=14)
-    plt.xlabel('预测次数', fontsize=12)
-    plt.ylabel('耗费时间（毫秒）', fontsize=12)
+    plt.figure(figsize=(12, 6), dpi=300)
+    plt.plot(xgboost_perfs, color='blue', linestyle='-', label='XGBoost', alpha=0.7)
+    plt.plot(lgb_perfs, color='orange', linestyle='-', label='LightGBM', alpha=0.7)
+    plt.plot(svm_perfs, color='green', linestyle='-', label='SVM', alpha=0.7)
+    plt.xlabel('Prediction Count', fontsize=28)
+    plt.ylabel('Prediction Time (ms)', fontsize=28)
     plt.grid(True, linestyle='--', alpha=0.5)
-    plt.legend(fontsize=12)
+    plt.legend(fontsize=24)
+    plt.tick_params(axis='x', labelsize=24)
+    plt.tick_params(axis='y', labelsize=24)
+    plt.xlim(0, loop)
     plt.tight_layout()
+    plt.savefig('./charts/PredictionTimeCostsLine.pdf')
     plt.show()
+
+    # 箱型图
+    plt.figure(figsize=(12, 6), dpi=300)
+    data_to_plot = [xgboost_perfs, lgb_perfs, svm_perfs]
+    labels = ['XGBoost', 'LightGBM', 'SVM']
+    plt.boxplot(data_to_plot, patch_artist=True, tick_labels=labels, showmeans=True, showfliers=False)
+    plt.ylabel('Prediction Time (ms)', fontsize=28)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tick_params(axis='x', labelsize=24)
+    plt.tick_params(axis='y', labelsize=24)
+    plt.tight_layout()
+    plt.savefig('./charts/PredictionTimeCostsBox.pdf')
+    plt.show()
+
+    print(f'XGB平均耗时: {sum(xgboost_perfs) / loop:.6f}ms')
+    print(f'XGB最大耗时: {max(xgboost_perfs):.6f}ms')
+    print(f'LGB平均耗时: {sum(lgb_perfs) / loop:.6f}ms')
+    print(f'LGB最大耗时: {max(lgb_perfs):.6f}ms')
+    print(f'SVM平均耗时: {sum(svm_perfs) / loop:.6f}ms')
+    print(f'SVM最大耗时: {max(svm_perfs):.6f}ms')
